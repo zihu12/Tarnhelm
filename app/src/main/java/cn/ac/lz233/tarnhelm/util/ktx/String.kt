@@ -8,6 +8,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.text.HtmlCompat
 import cn.ac.lz233.tarnhelm.App
 import cn.ac.lz233.tarnhelm.R
+import cn.ac.lz233.tarnhelm.extension.ExtensionManager
 import cn.ac.lz233.tarnhelm.logic.dao.SettingsDao
 import cn.ac.lz233.tarnhelm.util.LogUtil
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -118,6 +119,19 @@ fun String.doTarnhelm(): Triple<CharSequence, Boolean, List<String>> {
         }
     }
     if (targetRules.isEmpty()) result = this
+    val runningExtensions = ExtensionManager.getRunningExtensions()
+    for (ext in runningExtensions) {
+        if (ext.regexes.any { Regex(it).containsMatchIn(result) }) {
+            LogUtil._d("Target Extension: ${ext.id}@${ext.name}")
+            runCatching { ExtensionManager.handleStringSync(ext, result) }
+                .onSuccess { handled ->
+                    targetRules.add("[${R.string.extensionsTitle.getString()}]${ext.name}")
+                    result = handled
+                    LogUtil._d("After Extension [${ext.name}]: $result")
+                }
+                .onFailure { e -> LogUtil.e(e) }
+        }
+    }
     LogUtil._d("Result: $result")
     LogUtil._d("TargetRules: $targetRules")
     return Triple(result, hasTimeConsumingOperation, targetRules)

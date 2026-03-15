@@ -96,6 +96,10 @@ object ExtensionManager {
         return@withContext mExtensionManagerService.requestHandleString(extRecord, charSequence)
     }
 
+    fun handleStringSync(extRecord: ExtensionRecord, charSequence: CharSequence): String {
+        return mExtensionManagerService.handleStringSync(extRecord, charSequence)
+    }
+
     suspend fun requestCheckUpdate(extRecord: ExtensionRecord) = withContext(Dispatchers.IO) {
         return@withContext mExtensionManagerService.requestCheckUpdate(extRecord)
     }

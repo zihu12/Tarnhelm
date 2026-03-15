@@ -160,6 +160,12 @@ class ExtensionManagerService(private val context: Context) {
         throw RuntimeException("???")
     }
 
+    @Throws(RuntimeException::class)
+    fun handleStringSync(extRecord: ExtensionRecord, charSequence: CharSequence): String {
+        val service = runningExtMap.getOrDefault(extRecord, null) ?: throw RuntimeException("Extension (id=${extRecord.id}) is not running")
+        return service.onHandleString(charSequence)
+    }
+
     @Throws(Throwable::class)
     suspend fun requestCheckUpdate(extRecord: ExtensionRecord): String = withContext(Dispatchers.IO) {
         val service = runningExtMap.getOrDefault(extRecord, null) ?: throw RuntimeException("Extension (id=${extRecord.id}) is not running")
