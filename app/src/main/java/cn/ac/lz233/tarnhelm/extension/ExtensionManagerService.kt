@@ -1,5 +1,6 @@
 package cn.ac.lz233.tarnhelm.extension
 
+import android.app.Activity
 import android.content.Context
 import android.util.Log
 import cn.ac.lz233.tarnhelm.BuildConfig
@@ -7,9 +8,11 @@ import cn.ac.lz233.tarnhelm.extension.api.ExtContext
 import cn.ac.lz233.tarnhelm.extension.api.ExtService
 import cn.ac.lz233.tarnhelm.extension.api.ExtSharedPreferences
 import cn.ac.lz233.tarnhelm.extension.api.ITarnhelmExt
+import cn.ac.lz233.tarnhelm.extension.exception.ConfigurationPanelException
 import cn.ac.lz233.tarnhelm.extension.storage.ExtensionOwnStorage
 import cn.ac.lz233.tarnhelm.extension.storage.ExtensionRecordStorage
 import cn.ac.lz233.tarnhelm.util.ktx.getExtPath
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.file.Files
@@ -78,25 +81,24 @@ class ExtensionManagerService(private val context: Context) {
         }) as ExtService
     }
 
-    // TODO
-    /*@Throws(ConfigurationPanelException::class)
+    @Throws(ConfigurationPanelException::class)
     fun startExtensionConfigurationPanel(extRecord: ExtensionRecord, activity: Activity) {
         if (!extRecord.hasConfigurationPanel) {
-            throw RuntimeException("Extension (id=${extRecord.id}) has no configuration panel as mentioned")
+            throw ConfigurationPanelException("Extension (id=${extRecord.id}) has no configuration panel as mentioned")
         }
-        val extService = runningExtMap[extRecord] ?: createExtensionService(extRecord)
+        val extService = runningExtMap.entries.firstOrNull { it.key.id == extRecord.id }?.value
+            ?: createExtensionService(extRecord)
         try {
-            val panelImpl = extService as IExtConfigurationPanel
-            val view = panelImpl.onRequestConfigurationPanel(createRestrictedAppContext(), ExtensionOwnStorage(extRecord.getExtPath(context)))
-            AlertDialog.Builder(activity)
+            val view = extService.onRequestConfigurationPanel(createRestrictedAppContext())
+            MaterialAlertDialogBuilder(activity)
+                .setTitle(extRecord.name)
                 .setView(view)
+                .setPositiveButton(android.R.string.ok, null)
                 .show()
-        } catch (e: ClassCastException) {
-            throw ConfigurationPanelException("Extension (id=${extRecord.id}) does not implement IExtConfigurationPanel", e)
         } catch (e: Exception) {
-            throw ConfigurationPanelException("Unknown error occurred", e)
+            throw ConfigurationPanelException("Failed to show configuration panel for extension (id=${extRecord.id})", e)
         }
-    }*/
+    }
 
     private fun createRestrictedAppContext(): Context {
         return context.createPackageContext(BuildConfig.APPLICATION_ID, Context.CONTEXT_RESTRICTED)
