@@ -4,6 +4,7 @@ import android.app.Activity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.recyclerview.widget.RecyclerView
 import cn.ac.lz233.tarnhelm.R
@@ -24,6 +25,7 @@ class ExtensionListAdapter(
         val regexesContentTextView: AppCompatTextView = view.findViewById(R.id.regexesContentTextView)
         val authorContentTextView: AppCompatTextView = view.findViewById(R.id.authorContentTextView)
         val configureButton: MaterialButton = view.findViewById(R.id.configureButton)
+        val deleteButton: AppCompatImageButton = view.findViewById(R.id.deleteButton)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -58,6 +60,18 @@ class ExtensionListAdapter(
             }
         } else {
             holder.configureButton.visibility = View.GONE
+        }
+
+        holder.deleteButton.setOnClickListener {
+            runCatching {
+                ExtensionManager.uninstallExtension(ext)
+                val idx = holder.adapterPosition
+                if (idx != RecyclerView.NO_POSITION) {
+                    extensionList.removeAt(idx)
+                    notifyItemRemoved(idx)
+                    notifyItemRangeChanged(idx, extensionList.size - idx)
+                }
+            }.onFailure { e -> LogUtil.e(e) }
         }
     }
 
