@@ -1,8 +1,10 @@
 package cn.ac.lz233.tarnhelm.extension
 
+import android.app.Activity
 import android.util.Log
 import cn.ac.lz233.tarnhelm.App
 import cn.ac.lz233.tarnhelm.extension.api.ITarnhelmExt
+import cn.ac.lz233.tarnhelm.extension.exception.ConfigurationPanelException
 import cn.ac.lz233.tarnhelm.extension.exception.InvalidExtensionException
 import cn.ac.lz233.tarnhelm.util.ktx.getExtPath
 import kotlinx.coroutines.Dispatchers
@@ -86,14 +88,17 @@ object ExtensionManager {
         mExtensionManagerService.disableExtension(extRecord)
     }
 
-    // TODO
-    /*@Throws(ConfigurationPanelException::class)
+    @Throws(ConfigurationPanelException::class)
     fun startExtensionConfigurationPanel(extRecord: ExtensionRecord, activity: Activity) {
         mExtensionManagerService.startExtensionConfigurationPanel(extRecord, activity)
-    }*/
+    }
 
     suspend fun requestHandleString(extRecord: ExtensionRecord, charSequence: CharSequence) = withContext(Dispatchers.IO) {
         return@withContext mExtensionManagerService.requestHandleString(extRecord, charSequence)
+    }
+
+    fun handleStringSync(extRecord: ExtensionRecord, charSequence: CharSequence): String {
+        return mExtensionManagerService.handleStringSync(extRecord, charSequence)
     }
 
     suspend fun requestCheckUpdate(extRecord: ExtensionRecord) = withContext(Dispatchers.IO) {

@@ -8,6 +8,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.text.HtmlCompat
 import cn.ac.lz233.tarnhelm.App
 import cn.ac.lz233.tarnhelm.R
+import cn.ac.lz233.tarnhelm.extension.ExtensionManager
 import cn.ac.lz233.tarnhelm.logic.dao.SettingsDao
 import cn.ac.lz233.tarnhelm.util.LogUtil
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -118,6 +119,19 @@ fun String.doTarnhelm(): Triple<CharSequence, Boolean, List<String>> {
         }
     }
     if (targetRules.isEmpty()) result = this
+    val runningExtensions = ExtensionManager.getRunningExtensions()
+    for (ext in runningExtensions) {
+        if (ext.regexes.any { Regex(it).containsMatchIn(result) }) {
+            LogUtil._d("Target Extension: ${ext.id}@${ext.name}")
+            runCatching { ExtensionManager.handleStringSync(ext, result) }
+                .onSuccess { handled ->
+                    targetRules.add("[${R.string.extensionsTitle.getString()}]${ext.name}")
+                    result = handled
+                    LogUtil._d("After Extension [${ext.name}]: $result")
+                }
+                .onFailure { e -> LogUtil.e(e) }
+        }
+    }
     LogUtil._d("Result: $result")
     LogUtil._d("TargetRules: $targetRules")
     return Triple(result, hasTimeConsumingOperation, targetRules)
@@ -128,12 +142,38 @@ fun CharSequence.doTarnhelms(): Triple<CharSequence, Boolean, List<List<String>>
     var methodResult = this
     var hasTimeConsumingOperation = false
     val targetRules = mutableListOf<List<String>>()
+    // === 1. RAW TEXT PRE-PROCESSOR FOR EXTENSIONS ===
+    val allExtensions = cn.ac.lz233.tarnhelm.extension.ExtensionManager.getInstalledExtensions()
+    for (ext in allExtensions) {
+        if (!ext.enabled) continue
+
+        val rawRegexes = ext.regexes.filter { it.startsWith("RAW:") }.map { it.removePrefix("RAW:") }
+
+        if (rawRegexes.isNotEmpty() && rawRegexes.any { Regex(it).containsMatchIn(methodResult) }) {
+            // Because doTarnhelms is not a suspend function, we must use runBlocking
+            // to call the asynchronous requestHandleString function!
+            runCatching {
+                kotlinx.coroutines.runBlocking {
+                    cn.ac.lz233.tarnhelm.extension.ExtensionManager.requestHandleString(ext, methodResult)
+                }
+            }.onSuccess { handledString ->
+                cn.ac.lz233.tarnhelm.util.LogUtil._d("Extension returned: $handledString")
+                if (handledString != methodResult) {
+                    targetRules.add(listOf("[Extension] ${ext.name}(Raw Mode)"))
+                    methodResult = handledString
+                }
+            }.onFailure { e ->
+                cn.ac.lz233.tarnhelm.util.LogUtil.e(e)
+            }
+        }
+
+    }
     methodResult =
             //Regex("""((https|http)://)(\p{L}|\p{Nd})+\.\p{L}+(:\p{Nd})?(\p{Ll}|\p{Lu}|\p{Nd}|/|\?|\+|&|=|\.|-|_|#|%)*""")
         Regex("""(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s\uFF01-\uFF5E\u4e00-\u9fff\u3400-\u4DBF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u3000-\u303F]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s\uFF01-\uFF5E\u4e00-\u9fff\u3400-\u4DBF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u3000-\u303F]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s\uFF01-\uFF5E\u4e00-\u9fff\u3400-\u4DBF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u3000-\u303F]{2,}|www\.[a-zA-Z0-9]+\.[^\s\uFF01-\uFF5E\u4e00-\u9fff\u3400-\u4DBF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u3000-\u303F]{2,})""")
             // PatternsCompat.AUTOLINK_WEB_URL.toRegex() cannot recognize some irregular sharing texts
             // 73 xx发布了一篇小红书笔记，快来看吧！ 😆 xxxxxxxxxxxxx 😆 http://xhslink.com/xxxxxx，复制本条信息，打开【小红书】App查看精彩内容！
-            .replace(this) {
+            .replace(methodResult) {
                 val result = it.value.doTarnhelm()
                 if (result.second) hasTimeConsumingOperation = true
                 targetRules.add(result.third)

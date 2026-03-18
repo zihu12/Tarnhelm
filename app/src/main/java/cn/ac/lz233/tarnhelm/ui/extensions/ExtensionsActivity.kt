@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.recyclerview.widget.LinearLayoutManager
 import cn.ac.lz233.tarnhelm.R
 import cn.ac.lz233.tarnhelm.databinding.ActivityExtensionsBinding
 import cn.ac.lz233.tarnhelm.extension.ExtensionManager
@@ -22,6 +23,9 @@ class ExtensionsActivity : SecondaryBaseActivity() {
 
     private val binding by lazy { ActivityExtensionsBinding.inflate(layoutInflater) }
 
+    private val extensionList by lazy { ExtensionManager.getInstalledExtensions().toMutableList() }
+    private val adapter by lazy { ExtensionListAdapter(extensionList) }
+
     private val onExtInstallExceptionHandler = CoroutineExceptionHandler { _, exception ->
         // TODO: handle different exceptions during extension installation
         Log.e("ExtensionManager", "Failed to install extension", exception)
@@ -35,6 +39,12 @@ class ExtensionsActivity : SecondaryBaseActivity() {
             contentResolver.openInputStream(fileUri)?.let {
                 launch(onExtInstallExceptionHandler) {
                     ExtensionManager.installExtension(it)
+                    val updated = ExtensionManager.getInstalledExtensions()
+                    runOnUiThread {
+                        extensionList.clear()
+                        extensionList.addAll(updated)
+                        adapter.notifyDataSetChanged()
+                    }
                 }
             }
         }
@@ -46,7 +56,8 @@ class ExtensionsActivity : SecondaryBaseActivity() {
         setContentView(binding.root)
         setSupportActionBar(toolbar)
 
-
+        binding.extensionsRecyclerView.layoutManager = LinearLayoutManager(this)
+        binding.extensionsRecyclerView.adapter = adapter
 
         binding.openWebImageView.setOnClickListener {
 //            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://tarnhelm.project.ac.cn/rules.html")))
@@ -62,8 +73,6 @@ class ExtensionsActivity : SecondaryBaseActivity() {
         binding.importFab.setOnClickListener {
             startImport()
         }
-
-//        ExtensionManager.startExtensionConfigurationPanel("cn.ac.lz233.tarnhelm.ext.example", this)
     }
 
     private fun startImport() {
